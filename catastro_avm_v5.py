@@ -271,6 +271,19 @@ def generar_links(datos):
     return link_gmaps, link_idealista, link_catastro
 
 
+def obtener_plantas_edificio(refcat):
+    """Consulta el numero de plantas del edificio usando la referencia del inmueble colectivo (14 chars).
+    Hace una segunda llamada al catastro con la referencia de edificio en lugar de la unidad."""
+    ref_edificio = refcat[:14]
+    try:
+        params = urlencode({"Provincia": "", "Municipio": "", "RC": ref_edificio})
+        root = get_xml(f"{BASE}/OVCCallejero.asmx/Consulta_DNPRC?{params}")
+        npt = texto(root, "npt")
+        return npt
+    except RuntimeError:
+        return ""
+
+
 def consultar_refcat(refcat_input):
     refcat = limpiar_refcat(refcat_input)
     resultado = {"referencia_catastral": refcat}
@@ -282,6 +295,11 @@ def consultar_refcat(refcat_input):
         resultado.update(obtener_coordenadas(refcat))
     except RuntimeError:
         pass
+    # Segunda llamada para obtener numero de plantas del edificio
+    if not resultado.get("num_plantas"):
+        plantas = obtener_plantas_edificio(refcat)
+        if plantas:
+            resultado["num_plantas"] = plantas
     return resultado
 
 
