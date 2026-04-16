@@ -46,6 +46,36 @@ USO_A_TIPO = {
     "CULTURAL":                "local",
     "RELIGIOSO":               "local",
     "ESPECTACULOS":            "local",
+}
+
+# Mapeo codigo delegacion catastro (= codigo provincia) → Comunidad Autonoma
+PROVINCIA_A_CA = {
+    "01": "País Vasco",           "02": "Castilla-La Mancha",
+    "03": "Comunidad Valenciana", "04": "Andalucía",
+    "05": "Castilla y León",      "06": "Extremadura",
+    "07": "Islas Baleares",       "08": "Cataluña",
+    "09": "Castilla y León",      "10": "Extremadura",
+    "11": "Andalucía",            "12": "Comunidad Valenciana",
+    "13": "Castilla-La Mancha",   "14": "Andalucía",
+    "15": "Galicia",              "16": "Castilla-La Mancha",
+    "17": "Cataluña",             "18": "Andalucía",
+    "19": "Castilla-La Mancha",   "20": "País Vasco",
+    "21": "Andalucía",            "22": "Aragón",
+    "23": "Andalucía",            "24": "Castilla y León",
+    "25": "Cataluña",             "26": "La Rioja",
+    "27": "Galicia",              "28": "Comunidad de Madrid",
+    "29": "Andalucía",            "30": "Región de Murcia",
+    "31": "Comunidad Foral de Navarra", "32": "Galicia",
+    "33": "Principado de Asturias",     "34": "Castilla y León",
+    "35": "Canarias",             "36": "Galicia",
+    "37": "Castilla y León",      "38": "Canarias",
+    "39": "Cantabria",            "40": "Castilla y León",
+    "41": "Andalucía",            "42": "Castilla y León",
+    "43": "Cataluña",             "44": "Aragón",
+    "45": "Castilla-La Mancha",   "46": "Comunidad Valenciana",
+    "47": "Castilla y León",      "48": "País Vasco",
+    "49": "Castilla y León",      "50": "Aragón",
+    "51": "Ciudad Autónoma de Ceuta", "52": "Ciudad Autónoma de Melilla",
     "DEPORTIVO":               "local",
 }
 
@@ -221,6 +251,12 @@ def obtener_datos_callejero(refcat):
 
     for campo, valor in m2_por_uso.items():
         resultado[campo] = str(round(valor))
+
+    # Fallback comunidad autonoma: inferir desde codigo de provincia si el catastro no lo devuelve
+    if not resultado.get("comunidad") and resultado.get("delegacion"):
+        ca = PROVINCIA_A_CA.get(resultado["delegacion"].zfill(2), "")
+        if ca:
+            resultado["comunidad"] = ca
 
     return resultado
 
@@ -527,7 +563,10 @@ def sacar_precio_idealista(driver, lat, lon, cp, mun, prov, tipo_manual="", supe
         tipo = "chalets" if t in ("chalet", "chalets") else "pisos"
 
         filtro_m2 = ""
-        if superficie:
+        # Para chalets no aplicamos filtro de m2: en Idealista mezclan construido + parcela
+        # + terraza y no es comparable con m2_vivienda del catastro.
+        # Para pisos usamos m2_vivienda ±20% que si es homogeneo con Idealista.
+        if superficie and tipo != "chalets":
             try:
                 m2 = float(superficie.replace(",", "."))
                 m2_min = max(20, round(m2 * 0.8))
