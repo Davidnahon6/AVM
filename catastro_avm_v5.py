@@ -280,7 +280,7 @@ def obtener_plantas_edificio(refcat):
         root = get_xml(f"{BASE}/OVCCallejero.asmx/Consulta_DNPRC?{params}")
         npt = texto(root, "npt")
         return npt
-    except RuntimeError:
+    except Exception:
         return ""
 
 
@@ -297,9 +297,12 @@ def consultar_refcat(refcat_input):
         pass
     # Segunda llamada para obtener numero de plantas del edificio
     if not resultado.get("num_plantas"):
-        plantas = obtener_plantas_edificio(refcat)
-        if plantas:
-            resultado["num_plantas"] = plantas
+        try:
+            plantas = obtener_plantas_edificio(refcat)
+            if plantas:
+                resultado["num_plantas"] = plantas
+        except Exception:
+            pass
     return resultado
 
 
