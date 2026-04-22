@@ -873,12 +873,12 @@ if __name__ == "__main__":
                     if es_parking_res:
                         val_comp = res["precio_m2_medio"]
                         datos["valoracion_comparables"] = str(val_comp)
-                        datos["valoracion_avm"]         = str(round(val_comp * 0.90))
+                        datos["valoracion_avm"]         = str(round(val_comp * 0.85))
                     elif sup:
                         try:
                             val_comp = round(res["precio_m2_medio"] * float(sup.replace(",", ".")))
                             datos["valoracion_comparables"] = str(val_comp)
-                            datos["valoracion_avm"]         = str(round(val_comp * 0.90))
+                            datos["valoracion_avm"]         = str(round(val_comp * 0.85))
                         except Exception:
                             pass
 
