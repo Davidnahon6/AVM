@@ -121,8 +121,8 @@ COLUMNAS = [
     ("precio_m2_min",          "Precio m2 Min (EUR)"),
     ("precio_m2_max",          "Precio m2 Max (EUR)"),
     ("coef_variacion",         "Coef. Variacion (%)"),
-    ("valoracion_idealista",   "Valoracion Idealista (EUR)"),
-    ("valoracion_vivienda",    "Valoracion Vivienda (EUR)"),
+    ("valoracion_comparables", "Valoracion Comparables"),
+    ("valoracion_avm",         "Valoracion AVM"),
     ("precio_min_comparable",  "Precio Min Comparable (EUR)"),
     ("precio_max_comparable",  "Precio Max Comparable (EUR)"),
     ("num_comparables",        "No Comparables"),
@@ -140,7 +140,7 @@ COLUMNAS_LINKS = [
 YELLOW_KEYS  = {"radio_busqueda"}
 GREEN_KEYS   = {
     "tipo_busqueda", "precio_m2_idealista", "precio_m2_min", "precio_m2_max",
-    "coef_variacion", "valoracion_idealista", "valoracion_vivienda",
+    "coef_variacion", "valoracion_comparables", "valoracion_avm",
     "precio_min_comparable", "precio_max_comparable", "num_comparables",
 }
 WARNING_KEYS = {"planta_baja_flag"}
@@ -871,19 +871,14 @@ if __name__ == "__main__":
                     datos["link_max_comparable"]   = res.get("link_max", "")
 
                     if es_parking_res:
-                        datos["valoracion_idealista"] = f"{res['precio_m2_medio']:,} EUR".replace(",", ".")
+                        val_comp = res["precio_m2_medio"]
+                        datos["valoracion_comparables"] = str(val_comp)
+                        datos["valoracion_avm"]         = str(round(val_comp * 0.90))
                     elif sup:
                         try:
-                            val = round(res["precio_m2_medio"] * float(sup.replace(",", ".")))
-                            datos["valoracion_idealista"] = f"{val:,} EUR".replace(",", ".")
-                        except Exception:
-                            pass
-
-                    m2_viv = datos.get("m2_vivienda", "")
-                    if m2_viv and not es_parking_res:
-                        try:
-                            val_viv = round(res["precio_m2_medio"] * float(m2_viv.replace(",", ".")))
-                            datos["valoracion_vivienda"] = f"{val_viv:,} EUR".replace(",", ".")
+                            val_comp = round(res["precio_m2_medio"] * float(sup.replace(",", ".")))
+                            datos["valoracion_comparables"] = str(val_comp)
+                            datos["valoracion_avm"]         = str(round(val_comp * 0.90))
                         except Exception:
                             pass
 
