@@ -835,7 +835,15 @@ if __name__ == "__main__":
             print(f"  Aviso: {flag}")
 
         if usar_idealista and driver:
-            sup  = datos.get("m2_vivienda") or datos.get("superficie_m2", "")
+            # Superficie construida = m2_vivienda + m2_elem_comunes
+            # Es lo que Idealista anuncia como superficie en los anuncios de pisos.
+            # Excluimos parking (precio/m2 muy distinto) y almacen.
+            try:
+                m2_viv     = float(datos.get("m2_vivienda", 0) or 0)
+                m2_comunes = float(datos.get("m2_elem_comunes", 0) or 0)
+                sup = str(round(m2_viv + m2_comunes)) if m2_viv else datos.get("superficie_m2", "")
+            except Exception:
+                sup = datos.get("m2_vivienda") or datos.get("superficie_m2", "")
             cp   = datos.get("codigo_postal", "")
             mun  = datos.get("municipio", "").lower().replace(" ", "-")
             prov = datos.get("provincia", "").lower().replace(" ", "-")
