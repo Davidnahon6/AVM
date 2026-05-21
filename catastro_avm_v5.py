@@ -804,8 +804,32 @@ if __name__ == "__main__":
         try:
             import undetected_chromedriver as uc
             import time
+            import subprocess
+            import re as _re
+
+            # Leer version de Chrome instalada desde el registro de Windows
+            def _get_chrome_version():
+                try:
+                    r = subprocess.run(
+                        ["reg", "query",
+                         r"HKEY_CURRENT_USER\Software\Google\Chrome\BLBeacon",
+                         "/v", "version"],
+                        capture_output=True, text=True
+                    )
+                    m = _re.search(r"(\d+)\.\d+\.\d+\.\d+", r.stdout)
+                    if m:
+                        return int(m.group(1))
+                except Exception:
+                    pass
+                return None
+
             print("Abriendo Chrome...")
-            driver = uc.Chrome()
+            chrome_ver = _get_chrome_version()
+            if chrome_ver:
+                print(f"  Chrome detectado: version {chrome_ver}")
+                driver = uc.Chrome(version_main=chrome_ver)
+            else:
+                driver = uc.Chrome()
             time.sleep(3)
             driver.get("https://www.idealista.com")
             time.sleep(5)
