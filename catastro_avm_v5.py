@@ -805,7 +805,7 @@ if __name__ == "__main__":
             import undetected_chromedriver as uc
             import time
             print("Abriendo Chrome...")
-            driver = uc.Chrome(version_main=146)
+            driver = uc.Chrome()
             time.sleep(3)
             driver.get("https://www.idealista.com")
             time.sleep(5)
