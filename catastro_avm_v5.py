@@ -127,6 +127,8 @@ COLUMNAS = [
     ("precio_max_comparable",  "Precio Max Comparable (EUR)"),
     ("num_comparables",        "No Comparables"),
     ("radio_busqueda",         "Radio Busqueda"),
+    ("precio_m2_alquiler",     "Precio m2 Alquiler (EUR/mes)"),
+    ("rentabilidad_bruta",     "Rentabilidad Bruta (%)"),
     ("planta_baja_flag",       "Aviso Planta"),
     ("error_callejero",        "Error"),
 ]
@@ -142,6 +144,7 @@ GREEN_KEYS   = {
     "tipo_busqueda", "precio_m2_idealista", "precio_m2_min", "precio_m2_max",
     "coef_variacion", "valoracion_comparables", "valoracion_avm",
     "precio_min_comparable", "precio_max_comparable", "num_comparables",
+    "precio_m2_alquiler", "rentabilidad_bruta",
 }
 WARNING_KEYS = {"planta_baja_flag"}
 
@@ -536,25 +539,60 @@ def sacar_precio_idealista(driver, lat, lon, cp, mun, prov, tipo_manual="", supe
     # -----------------------------------------------------------------------
     elif es_local:
         tipo = "locales"
+
+        # Filtro m² para locales: ±200% (mercado muy heterogeneo, rango muy amplio)
+        filtro_m2_local = ""
+        if superficie:
+            try:
+                m2 = float(superficie.replace(",", "."))
+                m2_min = 10
+                m2_max = round(m2 * 3.0)
+                filtro_m2_local = f"con-metros-cuadrados-mas-de_{m2_min},metros-cuadrados-menos-de_{m2_max},"
+            except Exception:
+                pass
+
         if lat and lon:
             shape = shape_circulo(lat, lon, radio_m=200)
-            url = f"https://www.idealista.com/areas/venta-locales/?shape={shape}"
+            url       = f"https://www.idealista.com/areas/venta-locales/{filtro_m2_local}?shape={shape}"
+            url_alq   = f"https://www.idealista.com/areas/alquiler-locales/{filtro_m2_local}?shape={shape}"
         elif cp:
-            url = f"https://www.idealista.com/venta-locales/{mun}-{prov}/con-codigos_postales-{cp}/"
+            url       = f"https://www.idealista.com/venta-locales/{mun}-{prov}/con-codigos_postales-{cp}/{filtro_m2_local}"
+            url_alq   = f"https://www.idealista.com/alquiler-locales/{mun}-{prov}/con-codigos_postales-{cp}/{filtro_m2_local}"
         else:
-            url = f"https://www.idealista.com/venta-locales/{mun}-{prov}/"
+            url       = f"https://www.idealista.com/venta-locales/{mun}-{prov}/{filtro_m2_local}"
+            url_alq   = f"https://www.idealista.com/alquiler-locales/{mun}-{prov}/{filtro_m2_local}"
 
         radio_usado = "200m"
         pm2, pl, links = buscar_url(url, "200m")
 
         if len(pm2) < 5 and lat and lon:
-            print(f"  Solo {len(pm2)} comparables local, ampliando a 500m...")
+            print(f"  Solo {len(pm2)} comparables local venta, ampliando a 500m...")
             shape2 = shape_circulo(lat, lon, radio_m=500)
-            url2 = f"https://www.idealista.com/areas/venta-locales/?shape={shape2}"
+            url2   = f"https://www.idealista.com/areas/venta-locales/{filtro_m2_local}?shape={shape2}"
+            url_alq = f"https://www.idealista.com/areas/alquiler-locales/{filtro_m2_local}?shape={shape2}"
             pm2, pl, links = buscar_url(url2, "500m")
             radio_usado = "500m"
 
-        return calcular_resultado(pm2, pl, links, tipo, radio_usado)
+        res_venta = calcular_resultado(pm2, pl, links, tipo, radio_usado)
+
+        # Busqueda de alquiler para locales
+        print(f"  Buscando alquiler locales...")
+        pm2_alq, pl_alq, links_alq = buscar_url(url_alq, f"{radio_usado} alq")
+        if len(pm2_alq) < 3 and lat and lon and radio_usado == "200m":
+            shape3 = shape_circulo(lat, lon, radio_m=500)
+            url_alq2 = f"https://www.idealista.com/areas/alquiler-locales/{filtro_m2_local}?shape={shape3}"
+            pm2_alq, pl_alq, links_alq = buscar_url(url_alq2, "500m alq")
+
+        if res_venta and pm2_alq:
+            pm2_alq, _, _ = filtrar_outliers_iqr(pm2_alq, pl_alq, links_alq)
+            precio_alq_m2 = round(statistics.median(pm2_alq), 2) if pm2_alq else None
+            if precio_alq_m2 and res_venta["precio_m2_medio"] > 0:
+                rentabilidad = round((precio_alq_m2 * 12 / res_venta["precio_m2_medio"]) * 100, 2)
+                res_venta["precio_m2_alquiler"] = precio_alq_m2
+                res_venta["rentabilidad_bruta"] = rentabilidad
+                print(f"  Alquiler m2: {precio_alq_m2} EUR/mes | Rentabilidad bruta: {rentabilidad}%")
+
+        return res_venta
 
     # -----------------------------------------------------------------------
     # PISO / CHALET
@@ -721,11 +759,11 @@ def exportar_excel(lista_datos, filename="resultados_catastro.xlsx"):
 
         ws.row_dimensions[fila_idx].height = 18
 
-    # Anchos de columna (49 COLUMNAS + 3 LINKS = 52)
+    # Anchos de columna (51 COLUMNAS + 3 LINKS = 54)
     anchos = [
         22, 8, 28, 8, 8, 8, 8, 8, 9, 20, 16, 22, 14, 16, 14, 14, 14, 12, 12, 12,
         16, 12, 12, 12, 14, 12, 12, 12, 16, 10, 20, 22, 22, 22, 12, 12, 14, 18, 16, 16,
-        16, 22, 20, 22, 22, 14, 13, 20, 25, 16, 18, 16,
+        16, 22, 20, 22, 22, 14, 13, 22, 20, 20, 25, 16, 18, 16,
     ]
     for i, ancho in enumerate(anchos[:total_cols], start=1):
         ws.column_dimensions[get_column_letter(i)].width = ancho
@@ -859,13 +897,17 @@ if __name__ == "__main__":
             print(f"  Aviso: {flag}")
 
         if usar_idealista and driver:
-            # Superficie construida = m2_vivienda + m2_elem_comunes
-            # Es lo que Idealista anuncia como superficie en los anuncios de pisos.
-            # Excluimos parking (precio/m2 muy distinto) y almacen.
             try:
-                m2_viv     = float(datos.get("m2_vivienda", 0) or 0)
-                m2_comunes = float(datos.get("m2_elem_comunes", 0) or 0)
-                sup = str(round(m2_viv + m2_comunes)) if m2_viv else datos.get("superficie_m2", "")
+                t_lower = tipo_manual.lower() if tipo_manual else ""
+                if t_lower in ("local", "locales"):
+                    # Para locales usar m2_comercio / m2_industrial (Idealista publica esa superficie)
+                    sup = (datos.get("m2_comercio") or datos.get("m2_industrial") or
+                           datos.get("m2_otros") or datos.get("superficie_m2", ""))
+                else:
+                    # Superficie construida = m2_vivienda + m2_elem_comunes
+                    m2_viv     = float(datos.get("m2_vivienda", 0) or 0)
+                    m2_comunes = float(datos.get("m2_elem_comunes", 0) or 0)
+                    sup = str(round(m2_viv + m2_comunes)) if m2_viv else datos.get("superficie_m2", "")
             except Exception:
                 sup = datos.get("m2_vivienda") or datos.get("superficie_m2", "")
             cp   = datos.get("codigo_postal", "")
@@ -905,6 +947,11 @@ if __name__ == "__main__":
                             datos["valoracion_avm"]         = str(round(val_comp * 0.85))
                         except Exception:
                             pass
+
+                    if res.get("precio_m2_alquiler"):
+                        datos["precio_m2_alquiler"] = str(res["precio_m2_alquiler"])
+                    if res.get("rentabilidad_bruta"):
+                        datos["rentabilidad_bruta"] = str(res["rentabilidad_bruta"])
 
                     fiab = ("FIABLE" if res["coef_variacion"] <= 15
                             else "MODERADO" if res["coef_variacion"] <= 25
