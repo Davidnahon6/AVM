@@ -407,8 +407,9 @@ def sacar_precio_idealista(driver, lat, lon, cp, mun, prov, tipo_manual="", supe
     es_local   = t in ("local", "locales")
 
     # -----------------------------------------------------------------------
-    def _parsear_anuncios(anuncios, parking, vistos):
-        """Extrae precios/m2 de una lista de articulos de Idealista."""
+    def _parsear_anuncios(anuncios, parking, vistos, m2_range=None):
+        """Extrae precios/m2 de una lista de articulos de Idealista.
+        m2_range = (min_m2, max_m2) filtra por superficie tras parsear (para areas/ sin filtro URL)."""
         pm2, pl, links = [], [], []
         m2_min_filter = 5 if parking else 20
         for a in anuncios:
@@ -434,6 +435,8 @@ def sacar_precio_idealista(driver, lat, lon, cp, mun, prov, tipo_manual="", supe
                     pl.append(int(precio_num))
                     links.append(link)
             elif precio_num and m2_num and m2_num > m2_min_filter:
+                if m2_range and not (m2_range[0] <= m2_num <= m2_range[1]):
+                    continue
                 clave = f"{precio_num}_{m2_num}"
                 if clave in vistos:
                     continue
@@ -444,7 +447,7 @@ def sacar_precio_idealista(driver, lat, lon, cp, mun, prov, tipo_manual="", supe
         return pm2, pl, links
 
     # -----------------------------------------------------------------------
-    def buscar_url(url_base, radio_label, parking=False):
+    def buscar_url(url_base, radio_label, parking=False, m2_range=None):
         """Carga hasta 3 paginas de Idealista hasta obtener >=15 comparables."""
         pm2_total, pl_total, links_total = [], [], []
         vistos = set()
@@ -467,7 +470,7 @@ def sacar_precio_idealista(driver, lat, lon, cp, mun, prov, tipo_manual="", supe
             if not anuncios:
                 break
 
-            pm2_pag, pl_pag, links_pag = _parsear_anuncios(anuncios, parking, vistos)
+            pm2_pag, pl_pag, links_pag = _parsear_anuncios(anuncios, parking, vistos, m2_range=m2_range)
             pm2_total.extend(pm2_pag)
             pl_total.extend(pl_pag)
             links_total.extend(links_pag)
@@ -540,14 +543,16 @@ def sacar_precio_idealista(driver, lat, lon, cp, mun, prov, tipo_manual="", supe
     elif es_local:
         tipo = "locales"
 
-        # Filtro m² para locales: ±200% (mercado muy heterogeneo, rango muy amplio)
+        # Rango m² para filtrar comparables tras parsear (areas/ no acepta filtros en URL)
+        m2_range = None
         filtro_m2_local = ""
         if superficie:
             try:
-                m2 = float(superficie.replace(",", "."))
-                m2_min = 10
-                m2_max = round(m2 * 3.0)
-                filtro_m2_local = f"con-metros-cuadrados-mas-de_{m2_min},metros-cuadrados-menos-de_{m2_max},"
+                m2_ref = float(superficie.replace(",", "."))
+                m2_lo = max(10, round(m2_ref * 0.33))
+                m2_hi = round(m2_ref * 3.0)
+                m2_range = (m2_lo, m2_hi)
+                filtro_m2_local = f"con-metros-cuadrados-mas-de_{m2_lo},metros-cuadrados-menos-de_{m2_hi},"
             except Exception:
                 pass
 
@@ -564,25 +569,25 @@ def sacar_precio_idealista(driver, lat, lon, cp, mun, prov, tipo_manual="", supe
             url_alq = f"https://www.idealista.com/alquiler-locales/{mun}-{prov}/{filtro_m2_local}"
 
         radio_usado = "200m"
-        pm2, pl, links = buscar_url(url, "200m")
+        pm2, pl, links = buscar_url(url, "200m", m2_range=m2_range)
 
         if len(pm2) < 5 and lat and lon:
             print(f"  Solo {len(pm2)} comparables local venta, ampliando a 500m...")
             shape2  = shape_circulo(lat, lon, radio_m=500)
             url2    = f"https://www.idealista.com/areas/venta-locales/?shape={shape2}"
             url_alq = f"https://www.idealista.com/areas/alquiler-locales/?shape={shape2}"
-            pm2, pl, links = buscar_url(url2, "500m")
+            pm2, pl, links = buscar_url(url2, "500m", m2_range=m2_range)
             radio_usado = "500m"
 
         res_venta = calcular_resultado(pm2, pl, links, tipo, radio_usado)
 
         # Busqueda de alquiler para locales
         print(f"  Buscando alquiler locales...")
-        pm2_alq, pl_alq, links_alq = buscar_url(url_alq, f"{radio_usado} alq")
+        pm2_alq, pl_alq, links_alq = buscar_url(url_alq, f"{radio_usado} alq", m2_range=m2_range)
         if len(pm2_alq) < 3 and lat and lon and radio_usado == "200m":
             shape3   = shape_circulo(lat, lon, radio_m=500)
             url_alq2 = f"https://www.idealista.com/areas/alquiler-locales/?shape={shape3}"
-            pm2_alq, pl_alq, links_alq = buscar_url(url_alq2, "500m alq")
+            pm2_alq, pl_alq, links_alq = buscar_url(url_alq2, "500m alq", m2_range=m2_range)
 
         if res_venta and pm2_alq:
             pm2_alq, _, _ = filtrar_outliers_iqr(pm2_alq, pl_alq, links_alq)
