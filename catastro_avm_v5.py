@@ -407,6 +407,49 @@ def filtrar_outliers_iqr(pm2, pl, links):
     return list(p_f), list(l_f), list(lk_f)
 
 
+def generar_url_idealista(lat, lon, cp, mun, prov, tipo_manual="", superficie=""):
+    """Construye la URL de búsqueda de Idealista sin hacer scraping (círculo 200m o fallback CP)."""
+    t = tipo_manual.lower().strip() if tipo_manual else ""
+    es_parking = t in ("parking", "garaje", "garajes")
+    es_local   = t in ("local", "locales")
+
+    if es_parking:
+        if lat and lon:
+            return f"https://www.idealista.com/areas/venta-garajes/?shape={shape_circulo(lat, lon, radio_m=200)}"
+        elif cp:
+            return f"https://www.idealista.com/venta-garajes/{mun}-{prov}/con-codigos_postales-{cp}/"
+        return f"https://www.idealista.com/venta-garajes/{mun}-{prov}/"
+
+    elif es_local:
+        if lat and lon:
+            return f"https://www.idealista.com/areas/venta-locales/?shape={shape_circulo(lat, lon, radio_m=200)}"
+        filtro = ""
+        if cp and superficie:
+            try:
+                m2 = float(superficie.replace(",", "."))
+                filtro = f"con-metros-cuadrados-mas-de_{max(10, round(m2*0.33))},metros-cuadrados-menos-de_{round(m2*3.0)},"
+            except Exception:
+                pass
+        if cp:
+            return f"https://www.idealista.com/venta-locales/{mun}-{prov}/con-codigos_postales-{cp}/{filtro}"
+        return f"https://www.idealista.com/venta-locales/{mun}-{prov}/{filtro}"
+
+    else:
+        es_chalet = t in ("chalet", "chalets")
+        filtro = ""
+        if superficie and not es_chalet:
+            try:
+                m2 = float(superficie.replace(",", "."))
+                filtro = f"con-metros-cuadrados-mas-de_{max(20, round(m2*0.8))},metros-cuadrados-menos-de_{round(m2*1.2)},"
+            except Exception:
+                pass
+        if lat and lon:
+            return f"https://www.idealista.com/areas/venta-viviendas/{filtro}sin-inquilinos/?shape={shape_circulo(lat, lon, radio_m=200)}"
+        elif cp:
+            return f"https://www.idealista.com/geo/venta-viviendas/codigo-postal-{cp}/{filtro}sin-inquilinos/"
+        return f"https://www.idealista.com/venta-viviendas/{mun}-{prov}/{filtro}sin-inquilinos/"
+
+
 def sacar_precio_idealista(driver, lat, lon, cp, mun, prov, tipo_manual="", superficie=""):
     from bs4 import BeautifulSoup
     import time
@@ -931,23 +974,32 @@ if __name__ == "__main__":
             datos["planta_baja_flag"] = flag
             print(f"  Aviso: {flag}")
 
+        # Calcular sup/cp/mun/prov siempre (necesario para URL Idealista aunque no se busque)
+        try:
+            t_lower = tipo_manual.lower() if tipo_manual else ""
+            if t_lower in ("local", "locales"):
+                sup = (datos.get("m2_comercio") or datos.get("m2_industrial") or
+                       datos.get("m2_otros") or datos.get("superficie_m2", ""))
+            else:
+                m2_viv     = float(datos.get("m2_vivienda", 0) or 0)
+                m2_comunes = float(datos.get("m2_elem_comunes", 0) or 0)
+                sup = str(round(m2_viv + m2_comunes)) if m2_viv else datos.get("superficie_m2", "")
+        except Exception:
+            sup = datos.get("m2_vivienda") or datos.get("superficie_m2", "")
+        cp   = datos.get("codigo_postal", "")
+        mun  = datos.get("municipio", "").lower().replace(" ", "-")
+        prov = datos.get("provincia", "").lower().replace(" ", "-")
+
+        # Guardar URL de búsqueda Idealista siempre (aunque no se busquen comparables)
+        datos["link_idealista_busqueda"] = generar_url_idealista(
+            datos.get("coord_lat_wgs84", ""),
+            datos.get("coord_lon_wgs84", ""),
+            cp, mun, prov,
+            tipo_manual=tipo_manual,
+            superficie=sup,
+        )
+
         if usar_idealista and driver:
-            try:
-                t_lower = tipo_manual.lower() if tipo_manual else ""
-                if t_lower in ("local", "locales"):
-                    # Para locales usar m2_comercio / m2_industrial (Idealista publica esa superficie)
-                    sup = (datos.get("m2_comercio") or datos.get("m2_industrial") or
-                           datos.get("m2_otros") or datos.get("superficie_m2", ""))
-                else:
-                    # Superficie construida = m2_vivienda + m2_elem_comunes
-                    m2_viv     = float(datos.get("m2_vivienda", 0) or 0)
-                    m2_comunes = float(datos.get("m2_elem_comunes", 0) or 0)
-                    sup = str(round(m2_viv + m2_comunes)) if m2_viv else datos.get("superficie_m2", "")
-            except Exception:
-                sup = datos.get("m2_vivienda") or datos.get("superficie_m2", "")
-            cp   = datos.get("codigo_postal", "")
-            mun  = datos.get("municipio", "").lower().replace(" ", "-")
-            prov = datos.get("provincia", "").lower().replace(" ", "-")
             try:
                 res = sacar_precio_idealista(
                     driver,
