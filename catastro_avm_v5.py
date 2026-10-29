@@ -134,9 +134,10 @@ COLUMNAS = [
 ]
 
 COLUMNAS_LINKS = [
-    ("link_gmaps",     "Google Maps"),
-    ("link_idealista", "Idealista"),
-    ("link_catastro",  "Catastro"),
+    ("link_gmaps",             "Google Maps"),
+    ("link_idealista",         "Idealista"),
+    ("link_catastro",          "Catastro"),
+    ("link_catastro_edificio", "Catastro Edificio"),
 ]
 
 YELLOW_KEYS  = {"radio_busqueda"}
@@ -306,10 +307,17 @@ def generar_links(datos):
             f"?del={delegacion}&mun={cod_mun}&RefC={refcat}&esBice=&RCBice1=&RCBice2="
             f"&DenoBice=&from=OVCBusqueda&pest=rc&RCCompleta={refcat}&final=&urlBuzon="
         )
+        ref14 = refcat[:14]
+        link_catastro_edificio = (
+            f"https://www1.sedecatastro.gob.es/CYCBienInmueble/OVCConCiud.aspx"
+            f"?del={delegacion}&mun={cod_mun}&RefC={ref14}&esBice=S&RCBice1=&RCBice2="
+            f"&DenoBice=&from=OVCBusqueda&pest=rc&RCCompleta={ref14}&final=&urlBuzon="
+        )
     else:
         link_catastro = ""
+        link_catastro_edificio = ""
 
-    return link_gmaps, link_idealista, link_catastro
+    return link_gmaps, link_idealista, link_catastro, link_catastro_edificio
 
 
 def obtener_plantas_edificio(refcat):
@@ -763,12 +771,13 @@ def exportar_excel(lista_datos, filename="resultados_catastro.xlsx"):
                 cell.font = body_font
                 cell.fill = alt_fill if is_alt else PatternFill(fill_type=None)
 
-        link_gmaps, link_idealista, link_catastro = generar_links(datos)
+        link_gmaps, link_idealista, link_catastro, link_catastro_edificio = generar_links(datos)
         offset = len(COLUMNAS) + 1
         for i, (txt, url) in enumerate([
             ("Ver en Maps",      link_gmaps),
             ("Ver en Idealista", link_idealista),
             ("Ver en Catastro",  link_catastro),
+            ("Edificio Catastro", link_catastro_edificio),
         ]):
             cell = ws.cell(row=fila_idx, column=offset + i, value=txt)
             if url:
@@ -781,11 +790,11 @@ def exportar_excel(lista_datos, filename="resultados_catastro.xlsx"):
 
         ws.row_dimensions[fila_idx].height = 18
 
-    # Anchos de columna (51 COLUMNAS + 3 LINKS = 54)
+    # Anchos de columna (51 COLUMNAS + 4 LINKS = 55)
     anchos = [
         22, 8, 28, 8, 8, 8, 8, 8, 9, 20, 16, 22, 14, 16, 14, 14, 14, 12, 12, 12,
         16, 12, 12, 12, 14, 12, 12, 12, 16, 10, 20, 22, 22, 22, 12, 12, 14, 18, 16, 16,
-        16, 22, 20, 22, 22, 14, 13, 22, 20, 20, 25, 16, 18, 16,
+        16, 22, 20, 22, 22, 14, 13, 22, 20, 20, 25, 16, 18, 16, 20,
     ]
     for i, ancho in enumerate(anchos[:total_cols], start=1):
         ws.column_dimensions[get_column_letter(i)].width = ancho
