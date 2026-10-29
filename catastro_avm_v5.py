@@ -551,25 +551,26 @@ def sacar_precio_idealista(driver, lat, lon, cp, mun, prov, tipo_manual="", supe
             except Exception:
                 pass
 
+        # areas/ no soporta filtros de m² en el path — solo CP/municipio los acepta
         if lat and lon:
             shape = shape_circulo(lat, lon, radio_m=200)
-            url       = f"https://www.idealista.com/areas/venta-locales/{filtro_m2_local}?shape={shape}"
-            url_alq   = f"https://www.idealista.com/areas/alquiler-locales/{filtro_m2_local}?shape={shape}"
+            url     = f"https://www.idealista.com/areas/venta-locales/?shape={shape}"
+            url_alq = f"https://www.idealista.com/areas/alquiler-locales/?shape={shape}"
         elif cp:
-            url       = f"https://www.idealista.com/venta-locales/{mun}-{prov}/con-codigos_postales-{cp}/{filtro_m2_local}"
-            url_alq   = f"https://www.idealista.com/alquiler-locales/{mun}-{prov}/con-codigos_postales-{cp}/{filtro_m2_local}"
+            url     = f"https://www.idealista.com/venta-locales/{mun}-{prov}/con-codigos_postales-{cp}/{filtro_m2_local}"
+            url_alq = f"https://www.idealista.com/alquiler-locales/{mun}-{prov}/con-codigos_postales-{cp}/{filtro_m2_local}"
         else:
-            url       = f"https://www.idealista.com/venta-locales/{mun}-{prov}/{filtro_m2_local}"
-            url_alq   = f"https://www.idealista.com/alquiler-locales/{mun}-{prov}/{filtro_m2_local}"
+            url     = f"https://www.idealista.com/venta-locales/{mun}-{prov}/{filtro_m2_local}"
+            url_alq = f"https://www.idealista.com/alquiler-locales/{mun}-{prov}/{filtro_m2_local}"
 
         radio_usado = "200m"
         pm2, pl, links = buscar_url(url, "200m")
 
         if len(pm2) < 5 and lat and lon:
             print(f"  Solo {len(pm2)} comparables local venta, ampliando a 500m...")
-            shape2 = shape_circulo(lat, lon, radio_m=500)
-            url2   = f"https://www.idealista.com/areas/venta-locales/{filtro_m2_local}?shape={shape2}"
-            url_alq = f"https://www.idealista.com/areas/alquiler-locales/{filtro_m2_local}?shape={shape2}"
+            shape2  = shape_circulo(lat, lon, radio_m=500)
+            url2    = f"https://www.idealista.com/areas/venta-locales/?shape={shape2}"
+            url_alq = f"https://www.idealista.com/areas/alquiler-locales/?shape={shape2}"
             pm2, pl, links = buscar_url(url2, "500m")
             radio_usado = "500m"
 
@@ -579,8 +580,8 @@ def sacar_precio_idealista(driver, lat, lon, cp, mun, prov, tipo_manual="", supe
         print(f"  Buscando alquiler locales...")
         pm2_alq, pl_alq, links_alq = buscar_url(url_alq, f"{radio_usado} alq")
         if len(pm2_alq) < 3 and lat and lon and radio_usado == "200m":
-            shape3 = shape_circulo(lat, lon, radio_m=500)
-            url_alq2 = f"https://www.idealista.com/areas/alquiler-locales/{filtro_m2_local}?shape={shape3}"
+            shape3   = shape_circulo(lat, lon, radio_m=500)
+            url_alq2 = f"https://www.idealista.com/areas/alquiler-locales/?shape={shape3}"
             pm2_alq, pl_alq, links_alq = buscar_url(url_alq2, "500m alq")
 
         if res_venta and pm2_alq:
