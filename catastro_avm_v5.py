@@ -775,14 +775,18 @@ def exportar_excel(lista_datos, filename="resultados_catastro.xlsx"):
         link_gmaps, link_idealista, link_catastro, link_catastro_edificio = generar_links(datos)
         offset = len(COLUMNAS) + 1
         for i, (txt, url) in enumerate([
-            ("Ver en Maps",      link_gmaps),
-            ("Ver en Idealista", link_idealista),
-            ("Ver en Catastro",  link_catastro),
+            ("Ver en Maps",       link_gmaps),
+            ("Ver en Idealista",  link_idealista),
+            ("Ver en Catastro",   link_catastro),
             ("Edificio Catastro", link_catastro_edificio),
         ]):
-            cell = ws.cell(row=fila_idx, column=offset + i, value=txt)
+            cell = ws.cell(row=fila_idx, column=offset + i)
             if url:
-                cell.hyperlink = url
+                # =HYPERLINK() es más robusto que cell.hyperlink para URLs con & múltiples
+                url_safe = url.replace('"', '%22')
+                cell.value = f'=HYPERLINK("{url_safe}","{txt}")'
+            else:
+                cell.value = txt
             cell.font      = link_font
             cell.alignment = center
             cell.border    = border
