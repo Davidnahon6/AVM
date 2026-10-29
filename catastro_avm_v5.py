@@ -310,7 +310,7 @@ def generar_links(datos):
         ref14 = refcat[:14]
         link_catastro_edificio = (
             f"https://www1.sedecatastro.gob.es/CYCBienInmueble/OVCConCiud.aspx"
-            f"?del={delegacion}&mun={cod_mun}&RefC={ref14}&esBice=S&RCBice1=&RCBice2="
+            f"?del={delegacion}&mun={cod_mun}&RefC={ref14}&esBice=S&RCBice1={ref14}&RCBice2="
             f"&DenoBice=&from=OVCBusqueda&pest=rc&RCCompleta={ref14}&final=&urlBuzon="
         )
     else:
