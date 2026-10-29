@@ -291,7 +291,9 @@ def generar_links(datos):
         ]))
         link_gmaps = f"https://www.google.com/maps/search/{quote(direccion)}"
 
-    if cp:
+    if datos.get("link_idealista_busqueda"):
+        link_idealista = datos["link_idealista_busqueda"]
+    elif cp:
         link_idealista = f"https://www.idealista.com/geo/venta-viviendas/codigo-postal-{cp}/"
     elif lat and lon:
         link_idealista = f"https://www.idealista.com/maps/venta-viviendas/?center={lat},{lon}&zoom=19"
@@ -526,6 +528,7 @@ def sacar_precio_idealista(driver, lat, lon, cp, mun, prov, tipo_manual="", supe
             url = f"https://www.idealista.com/venta-garajes/{mun}-{prov}/"
 
         radio_usado = "200m"
+        url_usada = url
         pm2, pl, links = buscar_url(url, "200m", parking=True)
 
         if len(pm2) < 5 and lat and lon:
@@ -534,8 +537,12 @@ def sacar_precio_idealista(driver, lat, lon, cp, mun, prov, tipo_manual="", supe
             url2 = f"https://www.idealista.com/areas/venta-garajes/?shape={shape2}"
             pm2, pl, links = buscar_url(url2, "500m", parking=True)
             radio_usado = "500m"
+            url_usada = url2
 
-        return calcular_resultado(pm2, pl, links, tipo, radio_usado)
+        res = calcular_resultado(pm2, pl, links, tipo, radio_usado)
+        if res:
+            res["url_busqueda"] = url_usada
+        return res
 
     # -----------------------------------------------------------------------
     # LOCAL
@@ -569,6 +576,7 @@ def sacar_precio_idealista(driver, lat, lon, cp, mun, prov, tipo_manual="", supe
             url_alq = f"https://www.idealista.com/alquiler-locales/{mun}-{prov}/{filtro_m2_local}"
 
         radio_usado = "200m"
+        url_usada = url
         pm2, pl, links = buscar_url(url, "200m", m2_range=m2_range)
 
         if len(pm2) < 5 and lat and lon:
@@ -578,8 +586,11 @@ def sacar_precio_idealista(driver, lat, lon, cp, mun, prov, tipo_manual="", supe
             url_alq = f"https://www.idealista.com/areas/alquiler-locales/?shape={shape2}"
             pm2, pl, links = buscar_url(url2, "500m", m2_range=m2_range)
             radio_usado = "500m"
+            url_usada = url2
 
         res_venta = calcular_resultado(pm2, pl, links, tipo, radio_usado)
+        if res_venta:
+            res_venta["url_busqueda"] = url_usada
 
         # Busqueda de alquiler para locales
         print(f"  Buscando alquiler locales...")
@@ -628,6 +639,7 @@ def sacar_precio_idealista(driver, lat, lon, cp, mun, prov, tipo_manual="", supe
             url = f"https://www.idealista.com/venta-viviendas/{mun}-{prov}/{filtro_m2}sin-inquilinos/"
 
         radio_usado = "200m"
+        url_usada = url
         pm2, pl, links = buscar_url(url, "200m")
 
         if len(pm2) < 5 and lat and lon:
@@ -636,8 +648,12 @@ def sacar_precio_idealista(driver, lat, lon, cp, mun, prov, tipo_manual="", supe
             url2 = f"https://www.idealista.com/areas/venta-viviendas/{filtro_m2}sin-inquilinos/?shape={shape2}"
             pm2, pl, links = buscar_url(url2, "500m")
             radio_usado = "500m"
+            url_usada = url2
 
-        return calcular_resultado(pm2, pl, links, tipo, radio_usado)
+        res = calcular_resultado(pm2, pl, links, tipo, radio_usado)
+        if res:
+            res["url_busqueda"] = url_usada
+        return res
 
 
 # ---------------------------------------------------------------------------
@@ -953,6 +969,9 @@ if __name__ == "__main__":
                             datos["valoracion_avm"]         = str(round(val_comp * 0.85))
                         except Exception:
                             pass
+
+                    if res.get("url_busqueda"):
+                        datos["link_idealista_busqueda"] = res["url_busqueda"]
 
                     if res.get("precio_m2_alquiler"):
                         datos["precio_m2_alquiler"] = str(res["precio_m2_alquiler"])
